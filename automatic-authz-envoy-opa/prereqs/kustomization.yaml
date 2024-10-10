@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://github.com/spiffe/spire-tutorials/k8s/quickstart?ref=d27c579eb4f4e26f36f60373446c42c4ebd1e3da
+  - https://github.com/spiffe/spire-tutorials/k8s/envoy-x509/k8s?ref=d27c579eb4f4e26f36f60373446c42c4ebd1e3da
+
+patches:
+  # Add load generation to frontend apps
+  - path: patches/frontend.yaml
+  - path: patches/frontend-2.yaml
