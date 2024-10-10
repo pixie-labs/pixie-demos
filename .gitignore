@@ -17,3 +17,6 @@
 # vendor/
 
 custom-k8s-metrics-demo/main
+
+automatic-authz-envoy-opa/__pycache__
+**/__pycache__/

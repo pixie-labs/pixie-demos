@@ -1,0 +1,15 @@
+iniconfig==2.0.0
+mock==5.1.0
+numpy==1.26.4
+packaging==24.1
+pandas==2.2.3
+pluggy==1.5.0
+py4j==0.10.9.7
+pyarrow==17.0.0
+pyspark==3.5.3
+pytest==8.3.3
+python-dateutil==2.9.0.post0
+pytz==2024.2
+setuptools==75.1.0
+six==1.16.0
+tzdata==2024.2

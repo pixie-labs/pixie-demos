@@ -58,8 +58,13 @@ df.xfcc_by = px.pluck_array(df.xfcc_parts, 0)
 df.xfcc_uri = px.pluck_array(df.xfcc_parts, 2)
 
 df = df[df.xfcc != '']
+df = df.drop(['xfcc', 'xfcc_parts'])
 
-df.drop(['xfcc', 'xfcc_parts'])
+# Verify that the Pod name matches the XFCC By value. The
+# XFCC header will be used to determine the destination service.
+# In order to trust it, this verifies it matches the pod name seen
+# from Kubernetes.
+df = df[px.contains(df.xfcc_by, df.destination_deployment)]
 
 # Strip out all but the actual path value from req_path
 df.req_path = px.uri_recompose('', '', '', 0, px.pluck(px.uri_parse(df.req_path), 'path'), '', '')
