@@ -1,11 +1,16 @@
+import os
+
+from pyspark import SparkConf
+from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.functions import col, collect_set, explode, first, first_value, lower, regexp_extract, udf, when
+from pyspark.sql.functions import col, collect_set, collect_list, create_map, explode, first, first_value, lower, regexp_extract, udf, when, struct
 from pyspark.sql.types import StringType
 
 # More complex URL clustering/prefix matching can be done to scope L7 authz rules
 # more tightly. An example of how to extend this would be to use your services' OpenAPI
 # (Swagger) specs to extract route information from the URL and use that as the prefix.
 from pxspark.udfs import extract_url_prefix
+from pxspark.templating import convert_row_to_dict, render_import_template, render_main_template
 
 IGNORE_REQ_SUBSTRS = [
     "metrics", # Ignore /metrics requests
@@ -25,7 +30,7 @@ def compute_authz_service_mapping(df):
                         .withColumn("resource_attrs", explode(col("col.resource.attributes")))
                         .filter(col("resource_attrs.key") == "http.xfcc_by")
                         .withColumn("xfcc_by", col("resource_attrs.value.stringValue"))
-                        .withColumn("service_name", regexp_extract('xfcc_by', r'\/(\w+)$', 1)))
+                        .withColumn("service_name", regexp_extract('xfcc_by', r'\/([\w-]+)$', 1)))
     resources_df.drop("resource_attrs")
     resources_df.drop("xfcc_by")
 
@@ -53,12 +58,56 @@ def compute_authz_service_mapping(df):
         .filter(~ lower(col("http_target")).rlike("|".join(IGNORE_REQ_SUBSTRS)))
         .select(
             col("service_name"),
-            regexp_extract('xfcc_uri', r'\/(\w+)$', 1).alias("client_name"),
+            regexp_extract('xfcc_uri', r'\/([\w-]+)$', 1).alias("client_name"),
             col("http_target"),
             col("http_method")))
 
-    return result.groupBy("service_name", "client_name", "http_target", "http_method")
+    return (result.groupBy("service_name", "client_name")
+            .agg(collect_set(struct("http_target", "http_method")).alias("http_target_method_map"))
+            .groupBy("service_name")
+            .agg(collect_list(create_map(col("client_name"), col("http_target_method_map"))).alias("client_http_target_method_map")))
 
 if __name__ == "__main__":
-    # TODO(ddelnano): Add main function that kicks off spark job
-    pass
+    conf = SparkConf()
+    conf.setAll([
+        ("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.2.0"),
+        ("spark.hadoop.fs.s3a.aws.credentials.provider", "com.amazonaws.auth.profile.ProfileCredentialsProvider"),
+    ])
+
+    spark = (SparkSession.builder
+        .master("local[*]")
+        .config(conf=conf)
+        .appName("otel-export-authz-service-mapping")
+        .getOrCreate())
+
+    df = (spark.read
+              .option("header", "true")
+              .json("s3a://kubecon-2024-automatic-authorization/data/otel-export-authz-with-spiffe.json"))
+
+    df = compute_authz_service_mapping(df)
+
+    rows = df.collect()
+
+    output_dir = "/home/ddelnano/code/pixie-demos/automatic-authz-envoy-opa/opa"
+    # Create the directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(os.path.join(output_dir, "imports"), exist_ok=True)
+
+    services = []
+    for row in rows:
+        print(row)
+        service, sources = convert_row_to_dict(row)
+        services.append(service)
+
+        import_file = os.path.join(output_dir, "imports", f"{service}.rego")
+        with open(import_file, "w") as f:
+            import_output_backend = render_import_template(service, sources)
+            f.write(import_output_backend)
+    print(f"Service names: {services}")
+
+    output_file = os.path.join(output_dir, "opa-policy.rego")
+
+    # Write the rendered output to the file
+    with open(output_file, "w") as f:
+        main_output = render_main_template(services)
+        f.write(main_output)

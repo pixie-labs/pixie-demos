@@ -10,6 +10,8 @@ spec:
     spec:
       containers:
         - name: opa
+          # The existing OPA image is too old for rego.v1 imports
+          image: openpolicyagent/opa:0.59.0-envoy
           args:
           - run
           - --server
