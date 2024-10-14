@@ -24,10 +24,13 @@ data:
         check_interval: 5s
     extensions:
       zpages: {}
-      # memory_ballast:
-        # Memory Ballast size should be max 1/3 to 1/2 of memory.
-        # size_mib: 683
     exporters:
+      awss3:
+        s3uploader:
+          region: 'us-west-2'
+          s3_bucket: 'kubecon-2024-automatic-authorization'
+          s3_prefix: 'otel-export'
+          s3_partition: 'minute'
       file:
         path: /file-exporter/data.json
       debug:
@@ -40,7 +43,10 @@ data:
         traces:
           receivers: [otlp]
           processors: [memory_limiter, batch]
-          exporters: [debug, file]
+          # Replace the following line with the commented one
+          # to enable the AWS S3 exporter
+          # exporters: [debug, file]
+          exporters: [debug, file, awss3]
         metrics:
           receivers: [otlp]
           processors: [memory_limiter, batch]
@@ -95,6 +101,17 @@ spec:
           - "--config=/conf/otel-collector-config.yaml"
         image: otel/opentelemetry-collector-contrib:0.110.0
         name: otel-collector
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: otel-exporter-aws-credentials
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: otel-exporter-aws-credentials
+              key: AWS_SECRET_ACCESS_KEY
         resources:
           limits:
             cpu: 1

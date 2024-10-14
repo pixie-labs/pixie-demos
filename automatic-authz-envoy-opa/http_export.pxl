@@ -78,6 +78,10 @@ df.pixie = 'pixie'
 
 px.export(
 df, px.otel.Data(
+    endpoint=px.otel.Endpoint(
+      url='otel-collector.default.svc.cluster.local:4317',
+      insecure=True,
+    ),
     resource={
     'service.name': df.destination_service,
     'server.k8s.pod.name': df.destination_pod,
