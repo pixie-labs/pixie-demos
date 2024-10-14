@@ -1,3 +1,4 @@
+import argparse
 import os
 
 from pyspark import SparkConf
@@ -67,7 +68,18 @@ def compute_authz_service_mapping(df):
             .groupBy("service_name")
             .agg(collect_list(create_map(col("client_name"), col("http_target_method_map"))).alias("client_http_target_method_map")))
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Accepts an S3 bucket name and path prefix.")
+
+    parser.add_argument('--bucket', type=str, required=True,
+                        help='The name of the S3 bucket.')
+    parser.add_argument('--prefix', type=str, required=True,
+                        help='The path prefix inside the S3 bucket.')
+
+    return parser.parse_args()
+
 if __name__ == "__main__":
+    args = parse_args()
     conf = SparkConf()
     conf.setAll([
         ("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.2.0"),
@@ -80,9 +92,13 @@ if __name__ == "__main__":
         .appName("otel-export-authz-service-mapping")
         .getOrCreate())
 
+    # The path follows the following format:
+    # s3a://<bucket-name>/<prefix>/year=YYYY/month=MM/day=DD/hour=hh/min=mm/*.json
+    bucket = args.bucket
+    prefix = args.prefix
     df = (spark.read
               .option("header", "true")
-              .json("s3a://kubecon-2024-automatic-authorization/data/otel-export-authz-with-spiffe.json"))
+              .json(f"s3a://{bucket}/{prefix}/*/*/*/*/*/*.json"))
 
     df = compute_authz_service_mapping(df)
 
