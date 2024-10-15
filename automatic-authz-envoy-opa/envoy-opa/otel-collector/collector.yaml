@@ -25,12 +25,13 @@ data:
     extensions:
       zpages: {}
     exporters:
-      awss3:
-        s3uploader:
-          region: 'us-west-2'
-          s3_bucket: 'kubecon-2024-automatic-authorization'
-          s3_prefix: 'otel-export'
-          s3_partition: 'minute'
+      # PLACEHOLDER: Uncomment and replace with your AWS S3 bucket details
+      # awss3:
+      #   s3uploader:
+      #     region: 'us-west-2'
+      #     s3_bucket: 'kubecon-2024-automatic-authorization'
+      #     s3_prefix: 'otel-export'
+      #     s3_partition: 'minute'
       file:
         path: /file-exporter/data.json
       debug:
@@ -43,7 +44,7 @@ data:
         traces:
           receivers: [otlp]
           processors: [memory_limiter, batch]
-          # Replace the following line with the commented one
+          # PLACEHOLDER: Replace the following line with the commented one
           # to enable the AWS S3 exporter
           # exporters: [debug, file]
           exporters: [debug, file, awss3]
