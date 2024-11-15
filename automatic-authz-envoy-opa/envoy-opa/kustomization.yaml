@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://github.com/spiffe/spire-tutorials/k8s/envoy-opa/k8s?ref=d27c579eb4f4e26f36f60373446c42c4ebd1e3da
+  - otel-collector/
+
+patches:
+    # Remove rego file from Configmap and add new configuration that loads the OPA policy
+    # from a bundle
+  - target:
+      kind: ConfigMap
+      name: backend-opa-policy-config
+    patch: |-
+      - op: remove
+        path: /data/opa-policy.rego
+      - op: replace
+        path: /data/opa-config.yaml
+        value: |
+          decision_logs:
+            console: true
+          plugins:
+            envoy_ext_authz_grpc:
+              addr: :8182
+              query: data.envoy.authz.allow
+          services:
+            - name: github
+              url: https://github.com/ddelnano/pixie-demos/raw/refs/heads/ddelnano/kubecon-2024-authz/automatic-authz-envoy-opa
+          bundles:
+            authz:
+              service: github
+              resource: opa/bundle.tar.gz
+              persist: true
+              polling:
+                min_delay_seconds: 10
+                max_delay_seconds: 20
+  - path: patches/envoy-backend.yaml

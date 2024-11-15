@@ -1,0 +1,18 @@
+$patch: merge
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  template:
+    spec:
+      containers:
+        - name: opa
+          # The existing OPA image is too old for rego.v1 imports
+          image: openpolicyagent/opa:0.59.0-envoy
+          args:
+          - run
+          - --server
+          - --config-file=/run/opa/opa-config.yaml 
